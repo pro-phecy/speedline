@@ -1,62 +1,94 @@
+// src/app/(auth)/sign-up.tsx
+import { useRouter } from "expo-router";
+import React, { useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  Pressable,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useAuth } from "../../context/AuthContext";
 
-import { Link } from 'expo-router'
-import React from 'react'
-import { Image, Pressable, Text, TextInput, View } from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
+export default function SignUp() {
+  const { register } = useAuth();
+  const router = useRouter();
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
 
-export default function Page() {
+  async function handleSignUp() {
+    if (!username.trim() || !password.trim()) {
+      Alert.alert("Error", "Please enter a username and password.");
+      return;
+    }
+    try {
+      setLoading(true);
+      await register(username.trim(), password);
+      router.replace("/(tabs)/home");
+    } catch (e: any) {
+      Alert.alert("Sign up failed", e.message || "Unknown error");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
-    <SafeAreaView className='h-full w-full items-center justify-center  bg-yellow-500 ' >
-        <View className='flex rounded-3xl bg-white  pl-7 pr-7 pb-7' >
-            <View className='flex items-center justify-center'>
-               <Image source={require('../../../assets/images/icon.png')} className='w-60 h-40' resizeMode='stretch' />
-                <Text className='text-4xl font-bold text-yellow-500 pb-7'>Sign up</Text>
-            </View>
-      <Text className='font-semibold'>Email address</Text>
-      <View className=' p-2 '>
-      <TextInput
-       className="border border-gray-300 rounded-lg p-4"
-        autoCapitalize="none"
-        
-        placeholder="Enter email"
-        placeholderTextColor="#666666"
-        keyboardType="email-address"
-      />
-      </View>
-      
-      <Text className='font-semibold'>Password</Text>
-      <View className=' p-2 '>
-      <TextInput
-       className="border border-gray-300 rounded-lg p-4"
-        
-        placeholder="Enter password"
-        placeholderTextColor="#666666"
-        secureTextEntry={true}
-        
-      />
+    <SafeAreaView className="h-full w-full items-center justify-center bg-yellow-500">
+      <View className="flex rounded-3xl bg-white pl-7 pr-7 pb-7">
+        <View className="flex items-center justify-center">
+          <Image
+            source={require("../../../assets/images/icon.png")}
+            className="w-60 h-40"
+            resizeMode="stretch"
+          />
+          <Text className="text-4xl font-bold text-yellow-500 pb-7">Sign up</Text>
         </View>
-      
-      <Pressable
-        onPress={() => {}}
-      >
-        <View className='rounded-3xl bg-black p-4 items-center justify-center'>
-            <Text className=' text-white font-semibold text-2xl '>Sign up</Text>
+
+        <Text className="font-semibold">Username</Text>
+        <View className="p-2">
+          <TextInput
+            className="border border-gray-300 rounded-lg p-4"
+            autoCapitalize="none"
+            placeholder="Enter username"
+            placeholderTextColor="#666666"
+            value={username}
+            onChangeText={setUsername}
+          />
         </View>
-      </Pressable>
 
-      {/*{errors && <Text>{JSON.stringify(errors, null, 2)}</Text>}*/}
-
-      <View className='items-center justify-center p-4'>
-        <Text className='text-xl font-semibold'> Already have an account? </Text>
-        <Link href="/(tabs)/home">
-        <View>
-            <Text className='text-yellow-500 font-bold text-xl' >Sign in</Text>
+        <Text className="font-semibold">Password</Text>
+        <View className="p-2">
+          <TextInput
+            className="border border-gray-300 rounded-lg p-4"
+            placeholder="Enter password"
+            placeholderTextColor="#666666"
+            secureTextEntry
+            value={password}
+            onChangeText={setPassword}
+          />
         </View>
-        </Link>
-      </View>
 
-      <View nativeID="clerk-captcha" />
+        <Pressable onPress={handleSignUp} disabled={loading}>
+          <View className="rounded-3xl bg-black p-4 items-center justify-center">
+            {loading ? (
+              <ActivityIndicator color="white" />
+            ) : (
+              <Text className="text-white font-semibold text-2xl">Sign up</Text>
+            )}
+          </View>
+        </Pressable>
+
+        <View className="items-center justify-center p-4">
+          <Text className="text-xl font-semibold">Already have an account? </Text>
+          <Pressable onPress={() => router.push("/")}>
+            <Text className="text-yellow-500 font-bold text-xl pt-2">Sign in</Text>
+          </Pressable>
+        </View>
       </View>
     </SafeAreaView>
-  )
+  );
 }

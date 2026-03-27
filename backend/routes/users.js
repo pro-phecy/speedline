@@ -4,15 +4,15 @@ const { authenticate } = require("../middleware/auth");
 
 // POST /users — register a new user
 router.post("/", async (req, res) => {
-  const { username, avatar_url } = req.body;
+  const { username, password, avatar_url } = req.body;
 
-  if (!username) {
-    return res.status(400).json({ error: "username is required" });
+  if (!username || !password) {
+    return res.status(400).json({ error: "username and password are required" });
   }
 
   try {
     const [user] = await sql`
-      INSERT INTO users (username,password,avatar_url)
+      INSERT INTO users (username, password, avatar_url)
       VALUES (${username}, ${password}, ${avatar_url ?? null})
       RETURNING id, username, avatar_url, created_at
     `;
@@ -25,10 +25,30 @@ router.post("/", async (req, res) => {
   }
 });
 
+// POST /users/login — sign in
+router.post("/login", async (req, res) => {
+  const { username, password } = req.body;
+  if (!username || !password) {
+    return res.status(400).json({ error: "username and password are required" });
+  }
+
+  const [user] = await sql`
+    SELECT id, username, avatar_url, created_at
+    FROM users
+    WHERE username = ${username} AND password = ${password}
+  `;
+
+  if (!user) {
+    return res.status(401).json({ error: "Invalid credentials" });
+  }
+
+  res.json(user);
+});
+
 // GET /users/:id — get a user's public profile
 router.get("/:id", authenticate, async (req, res) => {
   const [user] = await sql`
-    SELECT id, username, password, avatar_url, created_at
+    SELECT id, username, avatar_url, created_at
     FROM users WHERE id = ${req.params.id}
   `;
 

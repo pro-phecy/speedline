@@ -1,11 +1,7 @@
+// src/app/(tabs)/_layout.tsx
 import { Stack } from "expo-router";
 import "../../global.css";
 
-export default function RootLayoutNav() {
-  return (
-    <Stack>
-      <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-    </Stack>
-  );
+export default function Layout() {
+  return <Stack screenOptions={{ headerShown: false }} />;
 }
