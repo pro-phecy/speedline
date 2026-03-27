@@ -1,4 +1,4 @@
-// src/app/(tabs)/index.tsx
+// src/app/(auth)/index.tsx
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
@@ -13,7 +13,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../context/AuthContext";
 
-export default function Index() {
+export default function SignIn() {
   const { login } = useAuth();
   const router = useRouter();
   const [username, setUsername] = useState("");
@@ -53,6 +53,7 @@ export default function Index() {
           <TextInput
             className="border border-gray-300 rounded-lg p-4"
             autoCapitalize="none"
+            autoCorrect={false}
             placeholder="Enter username"
             placeholderTextColor="#666666"
             value={username}
@@ -60,17 +61,19 @@ export default function Index() {
           />
         </View>
 
-        <Text className="font-semibold">Password</Text>
-        <View className="p-2">
-          <TextInput
-            className="border border-gray-300 rounded-lg p-4"
-            placeholder="Enter password"
-            placeholderTextColor="#666666"
-            secureTextEntry
-            value={password}
-            onChangeText={setPassword}
-          />
-        </View>
+       <Text className="font-semibold">Password</Text>
+<View className="p-2">
+  <TextInput
+    className="border border-gray-300 rounded-lg p-4"
+    placeholder="Enter password"
+    placeholderTextColor="#666666"
+    secureTextEntry
+    autoCapitalize="none"
+    autoCorrect={false}
+    value={password}
+    onChangeText={setPassword}
+  />
+</View>
 
         <Pressable onPress={handleSignIn} disabled={loading}>
           <View className="rounded-3xl bg-black p-4 items-center justify-center">

@@ -1,6 +1,6 @@
 // src/services/api.ts
 // Change this to your backend URL (e.g., your local IP when testing on a device)
-export const BASE_URL = "http://10.0.2.2:3000"; // Android emulator
+export const BASE_URL = "https://speedline-backend-1w6k.onrender.com"; // Android emulator
 // export const BASE_URL = "http://localhost:3000"; // iOS simulator
 // export const BASE_URL = "http://YOUR_LOCAL_IP:3000"; // Physical device
 

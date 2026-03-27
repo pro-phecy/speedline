@@ -9,7 +9,9 @@ router.get("/", authenticate, async (req, res) => {
 
     // Step 1: get all conversation IDs this user belongs to
     const memberships = await sql`
-      SELECT conversation_id FROM conversation_members WHERE user_id = ${userId}
+      SELECT conversation_id 
+      FROM conversation_members 
+      WHERE user_id = ${userId}
     `;
 
     if (memberships.length === 0) {
@@ -22,7 +24,7 @@ router.get("/", authenticate, async (req, res) => {
     const conversations = await sql`
       SELECT id, type, name, avatar_url, created_at
       FROM conversations
-      WHERE id = ANY(${conversationIds}::uuid[])
+      WHERE id = ANY(${sql.array(conversationIds, "uuid")})
       ORDER BY created_at DESC
     `;
 
@@ -34,20 +36,20 @@ router.get("/", authenticate, async (req, res) => {
         created_at,
         sender_id
       FROM messages
-      WHERE conversation_id = ANY(${conversationIds}::uuid[])
+      WHERE conversation_id = ANY(${sql.array(conversationIds, "uuid")})
       ORDER BY conversation_id, created_at DESC
     `;
 
-    // Step 4: get all members (excluding current user) for each conversation
+    // Step 4: get all members (excluding current user)
     const members = await sql`
       SELECT cm.conversation_id, u.id, u.username, u.avatar_url
       FROM conversation_members cm
       JOIN users u ON u.id = cm.user_id
-      WHERE cm.conversation_id = ANY(${conversationIds}::uuid[])
+      WHERE cm.conversation_id = ANY(${sql.array(conversationIds, "uuid")})
         AND u.id != ${userId}
     `;
 
-    // Step 5: assemble in JS
+    // Step 5: assemble response
     const lastMessageMap = {};
     for (const msg of lastMessages) {
       lastMessageMap[msg.conversation_id] = {
@@ -86,27 +88,36 @@ router.get("/", authenticate, async (req, res) => {
 router.post("/direct", authenticate, async (req, res) => {
   try {
     const { target_user_id } = req.body;
+
     if (!target_user_id) {
       return res.status(400).json({ error: "target_user_id is required" });
     }
 
+    // Check if conversation already exists
     const [existing] = await sql`
-      SELECT c.id FROM conversations c
-      JOIN conversation_members cm1 ON cm1.conversation_id = c.id AND cm1.user_id = ${req.user.id}
-      JOIN conversation_members cm2 ON cm2.conversation_id = c.id AND cm2.user_id = ${target_user_id}
+      SELECT c.id 
+      FROM conversations c
+      JOIN conversation_members cm1 
+        ON cm1.conversation_id = c.id AND cm1.user_id = ${req.user.id}
+      JOIN conversation_members cm2 
+        ON cm2.conversation_id = c.id AND cm2.user_id = ${target_user_id}
       WHERE c.type = 'direct'
       LIMIT 1
     `;
 
     if (existing) return res.json(existing);
 
+    // Create new conversation
     const [conversation] = await sql`
-      INSERT INTO conversations (type) VALUES ('direct') RETURNING id, type, created_at
+      INSERT INTO conversations (type) 
+      VALUES ('direct') 
+      RETURNING id, type, created_at
     `;
 
+    // Add members
     await sql`
       INSERT INTO conversation_members (conversation_id, user_id)
-      VALUES
+      VALUES 
         (${conversation.id}, ${req.user.id}),
         (${conversation.id}, ${target_user_id})
     `;
@@ -122,7 +133,10 @@ router.post("/direct", authenticate, async (req, res) => {
 router.post("/group", authenticate, async (req, res) => {
   try {
     const { name, avatar_url, member_ids = [] } = req.body;
-    if (!name) return res.status(400).json({ error: "name is required" });
+
+    if (!name) {
+      return res.status(400).json({ error: "name is required" });
+    }
 
     const [conversation] = await sql`
       INSERT INTO conversations (type, name, avatar_url)
@@ -134,7 +148,7 @@ router.post("/group", authenticate, async (req, res) => {
 
     await sql`
       INSERT INTO conversation_members (conversation_id, user_id)
-      SELECT ${conversation.id}, unnest(${allMembers}::uuid[])
+      SELECT ${conversation.id}, unnest(${sql.array(allMembers, "uuid")})
     `;
 
     res.status(201).json(conversation);
@@ -148,13 +162,21 @@ router.post("/group", authenticate, async (req, res) => {
 router.post("/:id/members", authenticate, async (req, res) => {
   try {
     const { user_id } = req.body;
-    if (!user_id) return res.status(400).json({ error: "user_id is required" });
+
+    if (!user_id) {
+      return res.status(400).json({ error: "user_id is required" });
+    }
 
     const [membership] = await sql`
-      SELECT 1 FROM conversation_members
-      WHERE conversation_id = ${req.params.id} AND user_id = ${req.user.id}
+      SELECT 1 
+      FROM conversation_members
+      WHERE conversation_id = ${req.params.id} 
+        AND user_id = ${req.user.id}
     `;
-    if (!membership) return res.status(403).json({ error: "Not a member" });
+
+    if (!membership) {
+      return res.status(403).json({ error: "Not a member" });
+    }
 
     await sql`
       INSERT INTO conversation_members (conversation_id, user_id)
@@ -179,6 +201,7 @@ router.get("/:id/members", authenticate, async (req, res) => {
       WHERE cm.conversation_id = ${req.params.id}
       ORDER BY cm.joined_at ASC
     `;
+
     res.json(members);
   } catch (err) {
     console.error("Get members error:", err);
