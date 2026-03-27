@@ -6,24 +6,25 @@ import {
   Alert,
   FlatList,
   KeyboardAvoidingView,
-  Platform,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "../../context/AuthContext";
 import { Message, getMessages } from "../../services/api";
 import { socketManager } from "../../services/socket";
 
 export default function Chat() {
-  const { conversationId, name } = useLocalSearchParams<{
+  const { conversationId, name, role } = useLocalSearchParams<{
     conversationId: string;
     name: string;
+    role?: string;
   }>();
   const { user } = useAuth();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [text, setText] = useState("");
@@ -46,7 +47,6 @@ export default function Chat() {
   useEffect(() => {
     loadMessages();
 
-    // Listen for new messages on this conversation
     const onNewMessage = (data: any) => {
       if (data.payload?.conversation_id === conversationId) {
         setMessages((prev) => [...prev, data.payload as Message]);
@@ -54,12 +54,8 @@ export default function Chat() {
       }
     };
 
-    // Listen for typing indicators
     const onTyping = (data: any) => {
-      if (
-        data.conversationId === conversationId &&
-        data.userId !== user?.id
-      ) {
+      if (data.conversationId === conversationId && data.userId !== user?.id) {
         setTypingUser(data.username);
         if (typingTimer.current) clearTimeout(typingTimer.current);
         typingTimer.current = setTimeout(() => setTypingUser(null), 3000);
@@ -120,23 +116,34 @@ export default function Chat() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-white" edges={["top"]}>
+    <View style={{ flex: 1, backgroundColor: "white", paddingTop: insets.top }}>
       {/* Header */}
       <View className="flex-row items-center px-4 py-3 border-b border-gray-200">
         <TouchableOpacity onPress={() => router.back()} className="mr-3">
           <Text className="text-yellow-500 text-base font-semibold">← Back</Text>
         </TouchableOpacity>
-        <View className="w-9 h-9 rounded-full bg-yellow-400 items-center justify-center mr-2">
-          <Text className="text-white font-bold">
+        <View className="w-10 h-10 rounded-full bg-yellow-400 items-center justify-center mr-3">
+          <Text className="text-white font-bold text-base">
             {(name ?? "?")[0].toUpperCase()}
           </Text>
         </View>
-        <Text className="text-lg font-semibold flex-1">{name}</Text>
+        {/* Name + role stacked */}
+        <View className="flex-1">
+          <Text className="text-base font-semibold text-gray-900" numberOfLines={1}>
+            {name}
+          </Text>
+          {role ? (
+            <Text className="text-xs text-yellow-500 font-medium" numberOfLines={1}>
+              {role}
+            </Text>
+          ) : null}
+        </View>
       </View>
 
+      {/* KAV */}
       <KeyboardAvoidingView
-        className="flex-1"
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={{ flex: 1 }}
+        behavior="padding"
         keyboardVerticalOffset={0}
       >
         {loading ? (
@@ -146,7 +153,7 @@ export default function Chat() {
         ) : (
           <FlatList
             ref={flatRef}
-            className="flex-1"
+            style={{ flex: 1 }}
             data={messages}
             keyExtractor={(m) => m.id}
             renderItem={renderMessage}
@@ -170,8 +177,10 @@ export default function Chat() {
           </Text>
         )}
 
-        {/* Input bar */}
-        <View className="flex-row items-end px-4 py-3 border-t border-gray-200 bg-white">
+        <View
+          className="flex-row items-end px-4 border-t border-gray-200 bg-white"
+          style={{ paddingBottom: insets.bottom + 8, paddingTop: 8 }}
+        >
           <TextInput
             className="flex-1 bg-gray-100 rounded-2xl px-4 py-3 text-base max-h-28"
             placeholder="Type a message..."
@@ -190,6 +199,6 @@ export default function Chat() {
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 }

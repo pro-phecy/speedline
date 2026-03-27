@@ -135,7 +135,11 @@ export default function Home() {
       setSearchResults([]);
       router.push({
         pathname: "/(tabs)/chatscreen",
-        params: { conversationId: convo.id, name: targetUser.username },
+        params: {
+          conversationId: convo.id,
+          name: targetUser.full_name || targetUser.username,
+          role: targetUser.role ?? "",
+        },
       });
     } catch (e: any) {
       Alert.alert("Error starting chat", e.message);
@@ -143,23 +147,28 @@ export default function Home() {
   }
 
   function openConversation(convo: Conversation) {
+    const member = convo.members?.[0];
     const name =
       convo.type === "group"
         ? convo.name
-        : convo.members?.[0]?.username ?? "Chat";
+        : member?.username ?? "Chat";
     router.push({
       pathname: "/(tabs)/chatscreen",
-      params: { conversationId: convo.id, name: name ?? "Chat" },
+      params: {
+        conversationId: convo.id,
+        name: name ?? "Chat",
+      },
     });
   }
 
   const isSearching = searchQuery.trim().length > 0;
 
   function renderConversation({ item }: { item: Conversation }) {
+    const member = item.members?.[0];
     const name =
       item.type === "group"
         ? item.name
-        : item.members?.[0]?.username ?? "Unknown";
+        : member?.username ?? "Unknown";
     const preview = item.last_message?.content ?? "No messages yet";
     const timeStr = formatTime(item.last_message?.created_at ?? item.created_at);
     const hasMessage = !!item.last_message;
@@ -205,14 +214,18 @@ export default function Home() {
       >
         <View className="w-12 h-12 rounded-full bg-yellow-400 items-center justify-center mr-3 shrink-0">
           <Text className="text-white font-bold text-lg">
-            {item.username[0].toUpperCase()}
+            {(item.full_name?.[0] ?? item.username[0]).toUpperCase()}
           </Text>
         </View>
         <View className="flex-1">
           <Text className="text-base font-semibold text-gray-900">
-            {item.username}
+            {item.full_name || item.username}
           </Text>
-          <Text className="text-sm text-gray-400">Tap to message</Text>
+          {item.role ? (
+            <Text className="text-sm text-yellow-500 font-medium">{item.role}</Text>
+          ) : (
+            <Text className="text-sm text-gray-400">@{item.username}</Text>
+          )}
         </View>
         <Text className="text-yellow-400 font-semibold text-sm">→</Text>
       </TouchableOpacity>
@@ -226,7 +239,11 @@ export default function Home() {
         <View>
           <Text className="font-bold text-2xl text-gray-900">SpeedLine</Text>
           {user && (
-            <Text className="text-xs text-gray-400 mt-0.5">@{user.username}</Text>
+            <Text className="text-xs text-gray-400 mt-0.5">
+              {user.full_name
+                ? `${user.full_name}${user.role ? ` · ${user.role}` : ""}`
+                : `@${user.username}`}
+            </Text>
           )}
         </View>
         <TouchableOpacity
@@ -243,7 +260,7 @@ export default function Home() {
           <Text className="text-gray-400 mr-2">🔍</Text>
           <TextInput
             className="flex-1 text-base text-gray-900"
-            placeholder="Search users to message…"
+            placeholder="Search by name, username or role…"
             placeholderTextColor="#9CA3AF"
             value={searchQuery}
             onChangeText={handleSearch}
@@ -307,7 +324,7 @@ export default function Home() {
                 No conversations yet
               </Text>
               <Text className="text-gray-400 text-sm text-center">
-                Search for a username above to start chatting.
+                Search for a name or role above to start chatting.
               </Text>
             </View>
           }

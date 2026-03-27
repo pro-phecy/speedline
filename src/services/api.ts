@@ -1,8 +1,7 @@
 // src/services/api.ts
-// Change this to your backend URL (e.g., your local IP when testing on a device)
-export const BASE_URL = "https://speedline-backend-1w6k.onrender.com"; // Android emulator
-// export const BASE_URL = "http://localhost:3000"; // iOS simulator
-// export const BASE_URL = "http://YOUR_LOCAL_IP:3000"; // Physical device
+export const BASE_URL = "https://speedline-backend-1w6k.onrender.com";
+// export const BASE_URL = "http://localhost:3000";
+// export const BASE_URL = "http://YOUR_LOCAL_IP:3000";
 
 let currentUserId: string | null = null;
 
@@ -14,10 +13,7 @@ export function getCurrentUserId(): string | null {
   return currentUserId;
 }
 
-async function request<T>(
-  path: string,
-  options: RequestInit = {}
-): Promise<T> {
+async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     ...(options.headers as Record<string, string>),
@@ -42,18 +38,30 @@ async function request<T>(
 export interface User {
   id: string;
   username: string;
+  full_name: string;
+  role: string | null;
+  bio: string | null;
   avatar_url: string | null;
   created_at: string;
+}
+
+export interface UpdateProfileInput {
+  full_name?: string;
+  role?: string;
+  bio?: string;
+  avatar_url?: string;
 }
 
 export async function registerUser(
   username: string,
   password: string,
+  full_name: string,
+  role?: string,
   avatar_url?: string
 ): Promise<User> {
   return request<User>("/users", {
     method: "POST",
-    body: JSON.stringify({ username, password, avatar_url }),
+    body: JSON.stringify({ username, password, full_name, role, avatar_url }),
   });
 }
 
@@ -69,6 +77,16 @@ export async function loginUser(
 
 export async function getUser(id: string): Promise<User> {
   return request<User>(`/users/${id}`);
+}
+
+export async function updateProfile(
+  id: string,
+  data: UpdateProfileInput
+): Promise<User> {
+  return request<User>(`/users/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
 }
 
 export async function searchUsers(query: string): Promise<User[]> {

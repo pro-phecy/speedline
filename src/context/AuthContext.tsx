@@ -1,6 +1,4 @@
 // src/context/AuthContext.tsx
-// Pure JS — no native modules required, works in any Expo environment.
-// Session is kept in memory; user logs in fresh each app launch.
 import React, { createContext, useContext, useState } from "react";
 import {
   User,
@@ -14,7 +12,7 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   login: (username: string, password: string) => Promise<void>;
-  register: (username: string, password: string) => Promise<void>;
+  register: (username: string, password: string, full_name: string, role?: string) => Promise<void>;
   logout: () => void;
 }
 
@@ -30,8 +28,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     socketManager.connect();
   }
 
-  async function register(username: string, password: string) {
-    const u = await registerUser(username, password);
+  async function register(username: string, password: string, full_name: string, role?: string) {
+    const u = await registerUser(username, password, full_name, role);
     setCurrentUserId(u.id);
     setUser(u);
     socketManager.connect();
