@@ -24,7 +24,7 @@ router.get("/", authenticate, async (req, res) => {
     const conversations = await sql`
       SELECT id, type, name, avatar_url, created_at
       FROM conversations
-      WHERE id = ANY(${sql.array(conversationIds, "uuid")})
+      WHERE id = ANY(${conversationIds})
     `;
 
     // Step 3: get last message per conversation
@@ -35,7 +35,7 @@ router.get("/", authenticate, async (req, res) => {
         created_at,
         sender_id
       FROM messages
-      WHERE conversation_id = ANY(${sql.array(conversationIds, "uuid")})
+      WHERE conversation_id = ANY(${conversationIds})
       ORDER BY conversation_id, created_at DESC
     `;
 
@@ -44,7 +44,7 @@ router.get("/", authenticate, async (req, res) => {
       SELECT cm.conversation_id, u.id, u.username, u.avatar_url
       FROM conversation_members cm
       JOIN users u ON u.id = cm.user_id
-      WHERE cm.conversation_id = ANY(${sql.array(conversationIds, "uuid")})
+      WHERE cm.conversation_id = ANY(${conversationIds})
         AND u.id != ${userId}
     `;
 
@@ -99,7 +99,6 @@ router.post("/direct", authenticate, async (req, res) => {
       return res.status(400).json({ error: "target_user_id is required" });
     }
 
-    // Check if a direct conversation already exists between the two users
     const [existing] = await sql`
       SELECT c.id 
       FROM conversations c
@@ -113,7 +112,6 @@ router.post("/direct", authenticate, async (req, res) => {
 
     if (existing) return res.json(existing);
 
-    // Create new direct conversation
     const [conversation] = await sql`
       INSERT INTO conversations (type) 
       VALUES ('direct') 
@@ -149,12 +147,11 @@ router.post("/group", authenticate, async (req, res) => {
       RETURNING id, type, name, avatar_url, created_at
     `;
 
-    // Ensure creator is always included
     const allMembers = [...new Set([req.user.id, ...member_ids])];
 
     await sql`
       INSERT INTO conversation_members (conversation_id, user_id)
-      SELECT ${conversation.id}, unnest(${sql.array(allMembers, "uuid")})
+      SELECT ${conversation.id}, unnest(${allMembers})
     `;
 
     res.status(201).json(conversation);
@@ -173,7 +170,6 @@ router.post("/:id/members", authenticate, async (req, res) => {
       return res.status(400).json({ error: "user_id is required" });
     }
 
-    // Verify the requester is already a member
     const [membership] = await sql`
       SELECT 1 
       FROM conversation_members
