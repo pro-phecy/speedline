@@ -6,30 +6,23 @@ const { authenticate } = require("../middleware/auth");
 router.get("/", authenticate, async (req, res) => {
   try {
     const userId = req.user.id;
-    console.log("USER:", req.user);
-    console.log("USER ID:", userId);
 
-    // Step 1: get all conversation IDs this user belongs to
     const memberships = await sql`
       SELECT conversation_id 
       FROM conversation_members 
       WHERE user_id = ${userId}
     `;
 
-    if (memberships.length === 0) {
-      return res.json([]);
-    }
+    if (memberships.length === 0) return res.json([]);
 
     const conversationIds = memberships.map((m) => m.conversation_id);
 
-    // Step 2: get conversation base info
     const conversations = await sql`
       SELECT id, type, name, avatar_url, created_at
       FROM conversations
       WHERE id = ANY(${conversationIds})
     `;
 
-    // Step 3: get last message per conversation
     const lastMessages = await sql`
       SELECT DISTINCT ON (conversation_id)
         conversation_id,
@@ -41,16 +34,15 @@ router.get("/", authenticate, async (req, res) => {
       ORDER BY conversation_id, created_at DESC
     `;
 
-    // Step 4: get all members (excluding current user)
+    // ✅ Now includes full_name and role
     const members = await sql`
-      SELECT cm.conversation_id, u.id, u.username, u.avatar_url
+      SELECT cm.conversation_id, u.id, u.username, u.full_name, u.role, u.avatar_url
       FROM conversation_members cm
       JOIN users u ON u.id = cm.user_id
       WHERE cm.conversation_id = ANY(${conversationIds})
         AND u.id != ${userId}
     `;
 
-    // Step 5: assemble maps
     const lastMessageMap = {};
     for (const msg of lastMessages) {
       lastMessageMap[msg.conversation_id] = {
@@ -65,14 +57,16 @@ router.get("/", authenticate, async (req, res) => {
       if (!membersMap[m.conversation_id]) {
         membersMap[m.conversation_id] = [];
       }
+      // ✅ full_name and role included in each member
       membersMap[m.conversation_id].push({
         id: m.id,
         username: m.username,
+        full_name: m.full_name,
+        role: m.role,
         avatar_url: m.avatar_url,
       });
     }
 
-    // Step 6: assemble and sort by latest activity
     const result = conversations
       .map((c) => ({
         ...c,
@@ -196,11 +190,11 @@ router.post("/:id/members", authenticate, async (req, res) => {
   }
 });
 
-// GET /conversations/:id/members
+// GET /conversations/:id/members  ✅ now includes full_name and role
 router.get("/:id/members", authenticate, async (req, res) => {
   try {
     const members = await sql`
-      SELECT u.id, u.username, u.avatar_url, cm.joined_at
+      SELECT u.id, u.username, u.full_name, u.role, u.avatar_url, cm.joined_at
       FROM conversation_members cm
       JOIN users u ON u.id = cm.user_id
       WHERE cm.conversation_id = ${req.params.id}

@@ -104,6 +104,8 @@ export interface LastMessage {
 export interface ConversationMember {
   id: string;
   username: string;
+  full_name: string | null;
+  role: string | null;
   avatar_url: string | null;
 }
 

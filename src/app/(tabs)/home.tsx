@@ -146,64 +146,70 @@ export default function Home() {
     }
   }
 
-  function openConversation(convo: Conversation) {
-    const member = convo.members?.[0];
-    const name =
-      convo.type === "group"
-        ? convo.name
-        : member?.username ?? "Chat";
-    router.push({
-      pathname: "/(tabs)/chatscreen",
-      params: {
-        conversationId: convo.id,
-        name: name ?? "Chat",
-      },
-    });
-  }
+function openConversation(convo: Conversation) {
+  const member = convo.members?.[0];
+  const name =
+  convo.type === "group"
+    ? convo.name
+    : (member?.full_name || member?.username) ?? "Chat";
+  const role =
+    convo.type === "group" ? "" : member?.role ?? "";
 
+  router.push({
+    pathname: "/(tabs)/chatscreen",
+    params: { conversationId: convo.id, name: name ?? "Chat", role },
+  });
+}
   const isSearching = searchQuery.trim().length > 0;
 
-  function renderConversation({ item }: { item: Conversation }) {
-    const member = item.members?.[0];
-    const name =
-      item.type === "group"
-        ? item.name
-        : member?.username ?? "Unknown";
-    const preview = item.last_message?.content ?? "No messages yet";
-    const timeStr = formatTime(item.last_message?.created_at ?? item.created_at);
-    const hasMessage = !!item.last_message;
+function renderConversation({ item }: { item: Conversation }) {
+  const member = item.members?.[0];
+  const name =
+  item.type === "group"
+    ? item.name
+    : (member?.full_name || member?.username) ?? "Unknown";
+  const subtitle =
+    item.type === "direct" && member?.role ? member.role : null;
+  const preview = item.last_message?.content ?? "No messages yet";
+  const timeStr = formatTime(item.last_message?.created_at ?? item.created_at);
+  const hasMessage = !!item.last_message;
 
-    return (
-      <TouchableOpacity
-        className="flex-row items-center px-4 py-3 border-b border-gray-100"
-        onPress={() => openConversation(item)}
-        activeOpacity={0.7}
-      >
-        <View className="w-12 h-12 rounded-full bg-yellow-400 items-center justify-center mr-3 shrink-0">
-          <Text className="text-white font-bold text-lg">
-            {((name ?? "?")[0] ?? "?").toUpperCase()}
-          </Text>
-        </View>
-        <View className="flex-1 min-w-0">
-          <View className="flex-row items-center justify-between mb-0.5">
-            <Text
-              className="font-semibold text-base text-gray-900 flex-1 mr-2"
-              numberOfLines={1}
-            >
-              {name}
-            </Text>
-            <Text className="text-xs text-gray-400 shrink-0">{timeStr}</Text>
-          </View>
+  return (
+    <TouchableOpacity
+      className="flex-row items-center px-4 py-3 border-b border-gray-100"
+      onPress={() => openConversation(item)}
+      activeOpacity={0.7}
+    >
+      <View className="w-12 h-12 rounded-full bg-yellow-400 items-center justify-center mr-3 shrink-0">
+        <Text className="text-white font-bold text-lg">
+          {((name ?? "?")[0] ?? "?").toUpperCase()}
+        </Text>
+      </View>
+      <View className="flex-1 min-w-0">
+        <View className="flex-row items-center justify-between mb-0.5">
           <Text
-            className={`text-sm ${hasMessage ? "text-gray-500" : "text-gray-400 italic"}`}
+            className="font-semibold text-base text-gray-900 flex-1 mr-2"
             numberOfLines={1}
           >
-            {preview}
+            {name}
           </Text>
+          <Text className="text-xs text-gray-400 shrink-0">{timeStr}</Text>
         </View>
-      </TouchableOpacity>
-    );
-  }
+        {subtitle ? (
+          <Text className="text-xs text-yellow-500 font-medium mb-0.5" numberOfLines={1}>
+            {subtitle}
+          </Text>
+        ) : null}
+        <Text
+          className={`text-sm ${hasMessage ? "text-gray-500" : "text-gray-400 italic"}`}
+          numberOfLines={1}
+        >
+          {preview}
+        </Text>
+      </View>
+    </TouchableOpacity>
+  );
+}
 
   function renderUserResult({ item }: { item: User }) {
     return (
