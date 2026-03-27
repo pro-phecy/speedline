@@ -13,26 +13,24 @@ router.get("/", authenticate, async (req, res) => {
         c.avatar_url,
         c.created_at,
         (
-          SELECT json_build_object(
-            'content', m.content,
-            'created_at', m.created_at,
-            'sender_id', m.sender_id
-          )
-          FROM messages m
-          WHERE m.conversation_id = c.id
-          ORDER BY m.created_at DESC
-          LIMIT 1
+          SELECT row_to_json(msg)
+          FROM (
+            SELECT m.content, m.created_at, m.sender_id
+            FROM messages m
+            WHERE m.conversation_id = c.id
+            ORDER BY m.created_at DESC
+            LIMIT 1
+          ) msg
         ) AS last_message,
         (
-          SELECT json_agg(json_build_object(
-            'id', u.id,
-            'username', u.username,
-            'avatar_url', u.avatar_url
-          ))
-          FROM conversation_members cm2
-          JOIN users u ON u.id = cm2.user_id
-          WHERE cm2.conversation_id = c.id
-          AND u.id != ${req.user.id}
+          SELECT json_agg(row_to_json(mem))
+          FROM (
+            SELECT u.id, u.username, u.avatar_url
+            FROM conversation_members cm2
+            JOIN users u ON u.id = cm2.user_id
+            WHERE cm2.conversation_id = c.id
+            AND u.id != ${req.user.id}
+          ) mem
         ) AS members
       FROM conversations c
       JOIN conversation_members cm ON cm.conversation_id = c.id
