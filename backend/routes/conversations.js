@@ -5,39 +5,77 @@ const { authenticate } = require("../middleware/auth");
 // GET /conversations
 router.get("/", authenticate, async (req, res) => {
   try {
-    const conversations = await sql`
-      SELECT
-        c.id,
-        c.type,
-        c.name,
-        c.avatar_url,
-        c.created_at,
-        (
-          SELECT row_to_json(msg)
-          FROM (
-            SELECT m.content, m.created_at, m.sender_id
-            FROM messages m
-            WHERE m.conversation_id = c.id
-            ORDER BY m.created_at DESC
-            LIMIT 1
-          ) msg
-        ) AS last_message,
-        (
-          SELECT json_agg(row_to_json(mem))
-          FROM (
-            SELECT u.id, u.username, u.avatar_url
-            FROM conversation_members cm2
-            JOIN users u ON u.id = cm2.user_id
-            WHERE cm2.conversation_id = c.id
-            AND u.id != ${req.user.id}
-          ) mem
-        ) AS members
-      FROM conversations c
-      JOIN conversation_members cm ON cm.conversation_id = c.id
-      WHERE cm.user_id = ${req.user.id}
-      ORDER BY c.created_at DESC
+    const userId = req.user.id;
+
+    // Step 1: get all conversation IDs this user belongs to
+    const memberships = await sql`
+      SELECT conversation_id FROM conversation_members WHERE user_id = ${userId}
     `;
-    res.json(conversations);
+
+    if (memberships.length === 0) {
+      return res.json([]);
+    }
+
+    const conversationIds = memberships.map((m) => m.conversation_id);
+
+    // Step 2: get conversation base info
+    const conversations = await sql`
+      SELECT id, type, name, avatar_url, created_at
+      FROM conversations
+      WHERE id = ANY(${conversationIds}::uuid[])
+      ORDER BY created_at DESC
+    `;
+
+    // Step 3: get last message per conversation
+    const lastMessages = await sql`
+      SELECT DISTINCT ON (conversation_id)
+        conversation_id,
+        content,
+        created_at,
+        sender_id
+      FROM messages
+      WHERE conversation_id = ANY(${conversationIds}::uuid[])
+      ORDER BY conversation_id, created_at DESC
+    `;
+
+    // Step 4: get all members (excluding current user) for each conversation
+    const members = await sql`
+      SELECT cm.conversation_id, u.id, u.username, u.avatar_url
+      FROM conversation_members cm
+      JOIN users u ON u.id = cm.user_id
+      WHERE cm.conversation_id = ANY(${conversationIds}::uuid[])
+        AND u.id != ${userId}
+    `;
+
+    // Step 5: assemble in JS
+    const lastMessageMap = {};
+    for (const msg of lastMessages) {
+      lastMessageMap[msg.conversation_id] = {
+        content: msg.content,
+        created_at: msg.created_at,
+        sender_id: msg.sender_id,
+      };
+    }
+
+    const membersMap = {};
+    for (const m of members) {
+      if (!membersMap[m.conversation_id]) {
+        membersMap[m.conversation_id] = [];
+      }
+      membersMap[m.conversation_id].push({
+        id: m.id,
+        username: m.username,
+        avatar_url: m.avatar_url,
+      });
+    }
+
+    const result = conversations.map((c) => ({
+      ...c,
+      last_message: lastMessageMap[c.id] ?? null,
+      members: membersMap[c.id] ?? [],
+    }));
+
+    res.json(result);
   } catch (err) {
     console.error("Get conversations error:", err);
     res.status(500).json({ error: "Failed to get conversations" });
