@@ -25,7 +25,6 @@ router.get("/", authenticate, async (req, res) => {
       SELECT id, type, name, avatar_url, created_at
       FROM conversations
       WHERE id = ANY(${sql.array(conversationIds, "uuid")})
-      ORDER BY created_at DESC
     `;
 
     // Step 3: get last message per conversation
@@ -49,7 +48,7 @@ router.get("/", authenticate, async (req, res) => {
         AND u.id != ${userId}
     `;
 
-    // Step 5: assemble response
+    // Step 5: assemble maps
     const lastMessageMap = {};
     for (const msg of lastMessages) {
       lastMessageMap[msg.conversation_id] = {
@@ -71,11 +70,18 @@ router.get("/", authenticate, async (req, res) => {
       });
     }
 
-    const result = conversations.map((c) => ({
-      ...c,
-      last_message: lastMessageMap[c.id] ?? null,
-      members: membersMap[c.id] ?? [],
-    }));
+    // Step 6: assemble and sort by latest activity
+    const result = conversations
+      .map((c) => ({
+        ...c,
+        last_message: lastMessageMap[c.id] ?? null,
+        members: membersMap[c.id] ?? [],
+      }))
+      .sort((a, b) => {
+        const aTime = a.last_message?.created_at ?? a.created_at;
+        const bTime = b.last_message?.created_at ?? b.created_at;
+        return new Date(bTime) - new Date(aTime);
+      });
 
     res.json(result);
   } catch (err) {
@@ -93,7 +99,7 @@ router.post("/direct", authenticate, async (req, res) => {
       return res.status(400).json({ error: "target_user_id is required" });
     }
 
-    // Check if conversation already exists
+    // Check if a direct conversation already exists between the two users
     const [existing] = await sql`
       SELECT c.id 
       FROM conversations c
@@ -107,14 +113,13 @@ router.post("/direct", authenticate, async (req, res) => {
 
     if (existing) return res.json(existing);
 
-    // Create new conversation
+    // Create new direct conversation
     const [conversation] = await sql`
       INSERT INTO conversations (type) 
       VALUES ('direct') 
       RETURNING id, type, created_at
     `;
 
-    // Add members
     await sql`
       INSERT INTO conversation_members (conversation_id, user_id)
       VALUES 
@@ -144,6 +149,7 @@ router.post("/group", authenticate, async (req, res) => {
       RETURNING id, type, name, avatar_url, created_at
     `;
 
+    // Ensure creator is always included
     const allMembers = [...new Set([req.user.id, ...member_ids])];
 
     await sql`
@@ -167,6 +173,7 @@ router.post("/:id/members", authenticate, async (req, res) => {
       return res.status(400).json({ error: "user_id is required" });
     }
 
+    // Verify the requester is already a member
     const [membership] = await sql`
       SELECT 1 
       FROM conversation_members
