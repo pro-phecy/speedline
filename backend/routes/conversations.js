@@ -3,13 +3,12 @@ const { sql } = require("../db");
 const { authenticate } = require("../middleware/auth");
 
 // GET /conversations
-console.log("USER:", req.user);
-console.log("USER ID:", req.user?.id);
 router.get("/", authenticate, async (req, res) => {
   try {
     const userId = req.user.id;
     console.log("USER:", req.user);
-console.log("USER ID:", req.user?.id);
+    console.log("USER ID:", userId);
+
     // Step 1: get all conversation IDs this user belongs to
     const memberships = await sql`
       SELECT conversation_id 
